@@ -1,0 +1,7 @@
+* wmi
+
+This is a collection of tools for remotely calling [[https://en.wikipedia.org/wiki/Windows_Management_Instrumentation][WMI (Windows Management Instrumentation)]] methods on a remote MS Windows machine from GNU/Linux.
+
+The sources and patches were kindly collected by the [[https://www.openvas.org][OpenVAS]] project.
+
+As of 2017-12-24 this is not directly compilable on recent compilers/platforms.
