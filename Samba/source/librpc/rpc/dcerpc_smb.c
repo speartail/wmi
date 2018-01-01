@@ -39,7 +39,11 @@ struct smb_private {
 */
 static void pipe_dead(struct dcerpc_connection *c, NTSTATUS status)
 {
-	c->transport.recv_data(c, NULL, status);
+	DEBUG_FN_ENTER;
+
+        c->transport.recv_data(c, NULL, status);
+        DEBUG_FN_EXIT;
+
 }
 
 
@@ -59,7 +63,9 @@ struct smb_read_state {
 */
 static void smb_read_callback(struct smbcli_request *req)
 {
-	struct smb_private *smb;
+	DEBUG_FN_ENTER;
+
+        struct smb_private *smb;
 	struct smb_read_state *state;
 	union smb_read *io;
 	uint16_t frag_length;
@@ -118,6 +124,8 @@ static void smb_read_callback(struct smbcli_request *req)
 
 	state->req->async.fn = smb_read_callback;
 	state->req->async.private = state;
+        DEBUG_FN_EXIT;
+
 }
 
 /*
@@ -126,7 +134,9 @@ static void smb_read_callback(struct smbcli_request *req)
 */
 static NTSTATUS send_read_request_continue(struct dcerpc_connection *c, DATA_BLOB *blob)
 {
-	struct smb_private *smb = c->transport.private;
+	DEBUG_FN_ENTER;
+
+        struct smb_private *smb = c->transport.private;
 	union smb_read *io;
 	struct smb_read_state *state;
 	struct smbcli_request *req;
@@ -180,6 +190,8 @@ static NTSTATUS send_read_request_continue(struct dcerpc_connection *c, DATA_BLO
 
 	state->req = req;
 
+        DEBUG_FN_EXIT;
+
 	return NT_STATUS_OK;
 }
 
@@ -189,7 +201,10 @@ static NTSTATUS send_read_request_continue(struct dcerpc_connection *c, DATA_BLO
 */
 static NTSTATUS send_read_request(struct dcerpc_connection *c)
 {
-	return send_read_request_continue(c, NULL);
+	DEBUG_FN_ENTER;
+
+        DEBUG_FN_EXIT;
+        return send_read_request_continue(c, NULL);
 }
 
 /* 
@@ -206,13 +221,16 @@ struct smb_trans_state {
 */
 static void smb_trans_callback(struct smbcli_request *req)
 {
-	struct smb_trans_state *state = req->async.private;
+	DEBUG_FN_ENTER;
+
+        struct smb_trans_state *state = req->async.private;
 	struct dcerpc_connection *c = state->c;
 	NTSTATUS status;
 
 	status = smb_raw_trans_recv(req, state, state->trans);
 
 	if (NT_STATUS_IS_ERR(status)) {
+	        DEBUG_FN_FAIL("smb_raw_trans_recv return error NTSTATUS");
 		pipe_dead(c, status);
 		return;
 	}
@@ -222,12 +240,15 @@ static void smb_trans_callback(struct smbcli_request *req)
 		talloc_steal(c, data.data);
 		talloc_free(state);
 		c->transport.recv_data(c, &data, NT_STATUS_OK);
+		DEBUG_FN_EXIT_MSG("BUFFER_OVERFLOW");
 		return;
 	}
 
 	/* there is more to receive - setup a readx */
 	send_read_request_continue(c, &state->trans->out.data);
 	talloc_free(state);
+        DEBUG_FN_EXIT;
+
 }
 
 /*
@@ -235,6 +256,8 @@ static void smb_trans_callback(struct smbcli_request *req)
 */
 static NTSTATUS smb_send_trans_request(struct dcerpc_connection *c, DATA_BLOB *blob)
 {
+        DEBUG_FN_ENTER;
+
         struct smb_private *smb = c->transport.private;
         struct smb_trans2 *trans;
         uint16_t setup[2];
@@ -275,6 +298,8 @@ static NTSTATUS smb_send_trans_request(struct dcerpc_connection *c, DATA_BLOB *b
 
 	talloc_steal(state, state->req);
 
+        DEBUG_FN_EXIT;
+
         return NT_STATUS_OK;
 }
 
@@ -283,7 +308,9 @@ static NTSTATUS smb_send_trans_request(struct dcerpc_connection *c, DATA_BLOB *b
 */
 static void smb_write_callback(struct smbcli_request *req)
 {
-	struct dcerpc_connection *c = req->async.private;
+	DEBUG_FN_ENTER;
+
+        struct dcerpc_connection *c = req->async.private;
 
 	if (!NT_STATUS_IS_OK(req->status)) {
 		DEBUG(0,("dcerpc_smb: write callback error\n"));
@@ -292,6 +319,8 @@ static void smb_write_callback(struct smbcli_request *req)
 	}
 
 	smbcli_request_destroy(req);
+        DEBUG_FN_EXIT;
+
 }
 
 /* 
@@ -299,7 +328,9 @@ static void smb_write_callback(struct smbcli_request *req)
 */
 static NTSTATUS smb_send_request(struct dcerpc_connection *c, DATA_BLOB *blob, BOOL trigger_read)
 {
-	struct smb_private *smb = c->transport.private;
+	DEBUG_FN_ENTER;
+
+        struct smb_private *smb = c->transport.private;
 	union smb_write io;
 	struct smbcli_request *req;
 
@@ -331,6 +362,8 @@ static NTSTATUS smb_send_request(struct dcerpc_connection *c, DATA_BLOB *blob, B
 		send_read_request(c);
 	}
 
+        DEBUG_FN_EXIT;
+
 	return NT_STATUS_OK;
 }
 
@@ -339,7 +372,9 @@ static NTSTATUS smb_send_request(struct dcerpc_connection *c, DATA_BLOB *blob, B
 */
 static NTSTATUS smb_shutdown_pipe(struct dcerpc_connection *c)
 {
-	struct smb_private *smb = c->transport.private;
+	DEBUG_FN_ENTER;
+
+        struct smb_private *smb = c->transport.private;
 	union smb_close io;
 	struct smbcli_request *req;
 
@@ -356,6 +391,8 @@ static NTSTATUS smb_shutdown_pipe(struct dcerpc_connection *c)
 	}
 
 	talloc_free(smb);
+
+        DEBUG_FN_EXIT;
 
 	return NT_STATUS_OK;
 }
@@ -405,7 +442,9 @@ struct composite_context *dcerpc_pipe_open_smb_send(struct dcerpc_connection *c,
 						    struct smbcli_tree *tree,
 						    const char *pipe_name)
 {
-	struct composite_context *ctx;
+	DEBUG_FN_ENTER;
+
+        struct composite_context *ctx;
 	struct pipe_open_smb_state *state;
 	struct smbcli_request *req;
 
@@ -455,12 +494,16 @@ struct composite_context *dcerpc_pipe_open_smb_send(struct dcerpc_connection *c,
 
 	req = smb_raw_open_send(tree, state->open);
 	composite_continue_smb(ctx, req, pipe_open_recv, state);
+
+        DEBUG_FN_EXIT;
 	return ctx;
 }
 
 static void pipe_open_recv(struct smbcli_request *req)
 {
-	struct pipe_open_smb_state *state = talloc_get_type(req->async.private,
+	DEBUG_FN_ENTER;
+
+        struct pipe_open_smb_state *state = talloc_get_type(req->async.private,
 					    struct pipe_open_smb_state);
 	struct composite_context *ctx = state->ctx;
 	struct dcerpc_connection *c = state->c;
@@ -496,12 +539,18 @@ static void pipe_open_recv(struct smbcli_request *req)
 	c->transport.private = smb;
 
 	composite_done(ctx);
+
+        DEBUG_FN_EXIT;
 }
 
 NTSTATUS dcerpc_pipe_open_smb_recv(struct composite_context *c)
 {
-	NTSTATUS status = composite_wait(c);
+	DEBUG_FN_ENTER;
+
+        NTSTATUS status = composite_wait(c);
 	talloc_free(c);
+
+        DEBUG_FN_EXIT;
 	return status;
 }
 
@@ -509,8 +558,11 @@ NTSTATUS dcerpc_pipe_open_smb(struct dcerpc_connection *c,
 			      struct smbcli_tree *tree,
 			      const char *pipe_name)
 {
-	struct composite_context *ctx =	dcerpc_pipe_open_smb_send(c, tree,
+	DEBUG_FN_ENTER;
+
+        struct composite_context *ctx =	dcerpc_pipe_open_smb_send(c, tree,
 								  pipe_name);
+
 	return dcerpc_pipe_open_smb_recv(ctx);
 }
 

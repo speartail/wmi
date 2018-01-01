@@ -13,32 +13,9 @@
 
 __doc__= "Re-implement the talloc macros in a python-compatible way"
 
-from pysamba.library import library
+from pysamba.library import library, logFuncCall
 from ctypes import *
-import os
-DEBUG_LOGGING = ("PYSAMBA_DEBUG" in os.environ)
-
 class TallocError(Exception): pass
-
-if DEBUG_LOGGING:
-    import logging
-    logging.basicConfig()
-    log = logging.getLogger('zen.pysamba.internal')
-    
-    def logFuncCall(f):
-        def wrapper(*args, **kw):
-            retstat = "FAIL"
-            try:
-                log.debug("called %s" % f.__name__)
-                res = f(*args, **kw)
-                retstat = "PASS"
-                return res
-            finally:
-                log.debug("leaving %s (%s)" % (f.__name__, retstat))
-        return wrapper
-else:
-    # define do-nothing decorator
-    logFuncCall = lambda f : f
 
 # function wrapper to check for out-of-memory and turn it into an exception
 def check(f):
@@ -50,8 +27,6 @@ def check(f):
     inner.__name__ = f.__name__
     return inner
 
-library._talloc_zero.restype = c_void_p
-
 @logFuncCall
 @check
 def talloc_zero(ctx, type):
@@ -61,9 +36,9 @@ def talloc_zero(ctx, type):
                                      typename),
                 POINTER(type))
 
+#char *talloc_asprintf(const void *t, const char *fmt, ...) PRINTF_ATTRIBUTE(2,3);
 library.talloc_asprintf.restype = c_char_p
-library.talloc_strdup.restype = c_char_p
-library.talloc_strdup.argtypes = [c_void_p, c_char_p]
+library.talloc_asprintf = logFuncCall(library.talloc_asprintf)
 
 @logFuncCall
 @check
@@ -91,8 +66,6 @@ def talloc_array(ctx, type, count):
                                 'struct ' + type.__name__)
     return cast(obj, POINTER(type))
 
-talloc_free = logFuncCall(library.talloc_free)
-talloc_increase_ref_count = logFuncCall(library.talloc_increase_ref_count)
-
-library.talloc_get_name.restype = c_char_p
+talloc_free = library.talloc_free
+talloc_increase_ref_count = library.talloc_increase_ref_count
 talloc_get_name = library.talloc_get_name

@@ -17,7 +17,7 @@ single host in an asynchronous fashion
 """
 
 from pysamba.twisted.reactor import eventContext
-from pysamba.library import library
+from pysamba.library import library, logFuncCall
 from pysamba.twisted.callback import Callback
 from pysamba.composite_context import *
 from pysamba.talloc import *
@@ -33,24 +33,28 @@ class dcerpc_interface_table(Structure): pass
 #                                                    struct event_context *ev);
 library.dcerpc_pipe_connect_send.restype = POINTER(composite_context)
 library.dcerpc_pipe_connect_send.argtypes = [c_void_p, c_char_p, c_void_p, c_void_p, c_void_p]
+library.dcerpc_pipe_connect_send = logFuncCall(library.dcerpc_pipe_connect_send)
 
 # NTSTATUS dcerpc_pipe_connect_recv(struct composite_context *c,
 #                                   TALLOC_CTX *mem_ctx,
 #                                   struct dcerpc_pipe **pp);
 library.dcerpc_pipe_connect_recv.restype = NTSTATUS
 library.dcerpc_pipe_connect_recv.argtypes = [POINTER(composite_context), c_void_p, c_void_p]
+library.dcerpc_pipe_connect_recv = logFuncCall(library.dcerpc_pipe_connect_recv)
 
 # _PUBLIC_ NTSTATUS dcerpc_ndr_request_recv(struct rpc_request *req);
 library.dcerpc_ndr_request_recv.restype = NTSTATUS
 library.dcerpc_ndr_request_recv.argtypes = [c_void_p]
+library.dcerpc_ndr_request_recv = logFuncCall(library.dcerpc_ndr_request_recv)
 
 #_PUBLIC_ void composite_continue_rpc(struct composite_context *ctx,
 #                                 struct rpc_request *new_req,
 #                                 void (*continuation)(struct rpc_request *),
 #                                 void *private_data)
 library.composite_continue_rpc.restype = None
-library.composite_continue_rpc.argtypes = [POINTER(composite_context), 
-    POINTER(rpc_request), c_void_p, c_void_p]
+library.composite_continue_rpc.argtypes = [POINTER(composite_context),
+                                           POINTER(rpc_request), c_void_p, c_void_p]
+library.composite_continue_rpc = logFuncCall(library.composite_continue_rpc)
 
 #
 # Continue the RPC connect after a successful socket open to the server by
@@ -70,11 +74,9 @@ def rpc_connect_continue(ctx):
     c.contents.async.private_data = cast(pipe, c_void_p)
     if not library.composite_is_ok(c):
         return
-    library.composite_done(c);
+    library.composite_done(c)
 continue_callback = CFUNCTYPE(None, POINTER(composite_context))
 rpc_connect_continue = continue_callback(rpc_connect_continue)
-
-empty_string = ''
 
 #
 # Open an RPC connection to the specified server
@@ -114,7 +116,7 @@ def async_rpc_open(event_ctx, server, cred, binding, arg, callback):
 @logFuncCall
 def continue_rpc(rpc_ctx):
     c = talloc_get_type(rpc_ctx.contents.async.private, composite_context)
-    c.contents.async.private_data = rpc_ctx.contents.ndr.struct_ptr;
+    c.contents.async.private_data = rpc_ctx.contents.ndr.struct_ptr
     c.contents.status = library.dcerpc_ndr_request_recv(rpc_ctx)
     if not library.composite_is_ok(c):
         return
@@ -159,6 +161,7 @@ class Rpc(object):
 
     # ctx is the memory context to use to make the call, if not the one that
     # started the original open call
+    @logFuncCall
     def call(self, send_func, arg, ctx = None):
         cb = Callback()
         if ctx is None:
@@ -168,6 +171,6 @@ class Rpc(object):
         rpc_ctx = cast(send_func(self.rpc_pipe, ctx, arg), POINTER(rpc_request))
         if library.composite_nomem(rpc_ctx, ctx):
             return
-        library.composite_continue_rpc(ctx, rpc_ctx, continue_rpc, ctx);
+        library.composite_continue_rpc(ctx, rpc_ctx, continue_rpc, ctx)
         return cb.deferred
 

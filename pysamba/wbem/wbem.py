@@ -142,20 +142,20 @@ class CIMVAR(Union):
         ('v_datetime', CIMSTRING), # relative,string,charset(UTF16),case(CIM_DATETIME)]
         ('v_reference', CIMSTRING), # relative,string,charset(UTF16),case(CIM_REFERENCE)]
         ('v_object', POINTER(WbemClassObject)), # [relative,subcontext(4),case(CIM_OBJECT)]
-        ('a_sint8', POINTER(arr_int8)), # [relative,case(CIM_ARR_SINT8)] 
-        ('a_uint8', POINTER(arr_uint8)), # [relative,case(CIM_ARR_UINT8)] 
-        ('a_sint16', POINTER(arr_int16)), # [relative,case(CIM_ARR_SINT16)] 
-        ('a_uint16', POINTER(arr_uint16)), # [relative,case(CIM_ARR_UINT16)] 
-        ('a_sint32', POINTER(arr_int32)), # [relative,case(CIM_ARR_SINT32)] 
-        ('a_uint32', POINTER(arr_uint32)), # [relative,case(CIM_ARR_UINT32)] 
-        ('a_sint64', POINTER(arr_dlong)), # [relative,case(CIM_ARR_SINT64)] 
-        ('a_uint64', POINTER(arr_udlong)), # [relative,case(CIM_ARR_UINT64)] 
-        ('a_real32', POINTER(arr_uint32)), # [relative,case(CIM_ARR_REAL32)] 
-        ('a_real64', POINTER(arr_udlong)), # [relative,case(CIM_ARR_REAL64)] 
-        ('a_boolean', POINTER(arr_uint16)), # [relative,case(CIM_ARR_BOOLEAN)] 
-        ('a_string', POINTER(arr_CIMSTRING)), # [relative,case(CIM_ARR_STRING)] 
-        ('a_datetime', POINTER(arr_CIMSTRING)), # [relative,case(CIM_ARR_DATETIME)] 
-        ('a_reference', POINTER(arr_CIMSTRING)), # [relative,case(CIM_ARR_REFERENCE)] 
+        ('a_sint8', POINTER(arr_int8)), # [relative,case(CIM_ARR_SINT8)]
+        ('a_uint8', POINTER(arr_uint8)), # [relative,case(CIM_ARR_UINT8)]
+        ('a_sint16', POINTER(arr_int16)), # [relative,case(CIM_ARR_SINT16)]
+        ('a_uint16', POINTER(arr_uint16)), # [relative,case(CIM_ARR_UINT16)]
+        ('a_sint32', POINTER(arr_int32)), # [relative,case(CIM_ARR_SINT32)]
+        ('a_uint32', POINTER(arr_uint32)), # [relative,case(CIM_ARR_UINT32)]
+        ('a_sint64', POINTER(arr_dlong)), # [relative,case(CIM_ARR_SINT64)]
+        ('a_uint64', POINTER(arr_udlong)), # [relative,case(CIM_ARR_UINT64)]
+        ('a_real32', POINTER(arr_uint32)), # [relative,case(CIM_ARR_REAL32)]
+        ('a_real64', POINTER(arr_udlong)), # [relative,case(CIM_ARR_REAL64)]
+        ('a_boolean', POINTER(arr_uint16)), # [relative,case(CIM_ARR_BOOLEAN)]
+        ('a_string', POINTER(arr_CIMSTRING)), # [relative,case(CIM_ARR_STRING)]
+        ('a_datetime', POINTER(arr_CIMSTRING)), # [relative,case(CIM_ARR_DATETIME)]
+        ('a_reference', POINTER(arr_CIMSTRING)), # [relative,case(CIM_ARR_REFERENCE)]
         ('a_object', POINTER(arr_WbemClassObject)), # [relative,case(CIM_ARR_OBJECT)]
         ]
 
@@ -182,7 +182,7 @@ class WbemProperty(Structure):
         ('name', CIMSTRING), # [relative,string,charset(UTF16)]
         ('desc', POINTER(WbemPropertyDesc)), # [relative]
         ]
-        
+
 class WbemMethods(Structure): pass
 
 class WbemClass(Structure):
@@ -197,7 +197,7 @@ class WbemClass(Structure):
         ('default_flags', POINTER(uint8_t)),
         ('default_values', POINTER(CIMVAR)),
         ]
-        
+
 class WbemInstance(Structure):
     _fields_ = [
         ('u1_0', uint8_t),
@@ -224,8 +224,6 @@ class IEnumWbemClassObject(Structure): pass
 class IWbemClassObject(Structure): pass
 class IWbemContext(Structure): pass
 class IUnknown(Structure): pass
-class event_context(Structure): pass
-class reactor_functions(Structure): pass
 
 # hack definition of BSTR, needs more complete structure definition
 BSTR = c_char_p
@@ -236,45 +234,76 @@ WBEM_FLAG_FORWARD_ONLY = 0x20
 
 WBEM_S_TIMEDOUT=0x40004
 
+#WERROR IWbemServices_ExecQuery_recv(struct composite_context *c, struct IEnumWbemClassObject **ppEnum);
 library.IWbemServices_ExecQuery_recv.restype = WERROR
+library.IWbemServices_ExecQuery_recv.argtypes = [POINTER(composite_context), POINTER(POINTER(IEnumWbemClassObject))]
+library.IWbemServices_ExecQuery_recv = logFuncCall(library.IWbemServices_ExecQuery_recv)
+
+#WERROR IEnumWbemClassObject_Reset_recv(struct composite_context *c);
 library.IEnumWbemClassObject_Reset_recv.restype = WERROR
-library.IWbemServices_ExecNotificationQuery_recv.restype = WERROR
+library.IEnumWbemClassObject_Reset_recv.argtypes = [POINTER(composite_context)]
+library.IEnumWbemClassObject_Reset_recv = logFuncCall(library.IEnumWbemClassObject_Reset_recv)
+
+#uint32_t IUnknown_Release_recv(struct composite_context *c);
 library.IUnknown_Release_recv.restype = WERROR
+library.IUnknown_Release_recv.argtypes = [POINTER(composite_context)]
+library.IUnknown_Release_recv = logFuncCall(library.IUnknown_Release_recv)
 
 library.WBEM_ConnectServer.restype = WERROR
 library.WBEM_ConnectServer.argtypes = [POINTER(com_context), c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_uint32, c_char_p, POINTER(IWbemContext), c_void_p]
+library.WBEM_ConnectServer = logFuncCall(library.WBEM_ConnectServer)
 library.WBEM_ConnectServer_recv.restype = WERROR
 library.WBEM_ConnectServer_recv.argtypes = [POINTER(composite_context), c_void_p, c_void_p]
+library.WBEM_ConnectServer_recv = logFuncCall(library.WBEM_ConnectServer_recv)
+
+#extern struct composite_context *WBEM_ConnectServer_send(struct com_context *ctx,
+#        TALLOC_CTX *parent_ctx, const char *server, const char *nspace,
+#        const char *user, const char *password, const char *locale,
+#        uint32_t flags, const char *authority, struct IWbemContext* wbem_ctx);
 library.WBEM_ConnectServer_send.restype = POINTER(composite_context)
-#library.WBEM_ConnectServer_send.argtypes = [POINTER(com_context), c_void_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_uint32, c_char_p, POINTER(IWbemContext)]
+library.WBEM_ConnectServer_send.argtypes = [POINTER(com_context), c_void_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_uint32, c_char_p, POINTER(IWbemContext)]
+library.WBEM_ConnectServer_send = logFuncCall(library.WBEM_ConnectServer_send)
+
 library.IEnumWbemClassObject_SmartNext_send.restype = POINTER(composite_context)
 library.IEnumWbemClassObject_SmartNext_send.argtypes = [POINTER(IEnumWbemClassObject), c_void_p, c_int32, c_uint32]
+library.IEnumWbemClassObject_SmartNext_send = logFuncCall(library.IEnumWbemClassObject_SmartNext_send)
 library.IEnumWbemClassObject_SmartNext_recv.restype = WERROR
 library.IEnumWbemClassObject_SmartNext_recv.argtypes = [POINTER(composite_context), c_void_p, c_void_p, c_void_p]
+library.IEnumWbemClassObject_SmartNext_recv = logFuncCall(library.IEnumWbemClassObject_SmartNext_recv)
 library.IEnumWbemClassObject_SmartNext.restype = WERROR
 library.IEnumWbemClassObject_SmartNext.argtypes = [POINTER(IEnumWbemClassObject), c_void_p, c_int32, c_uint32, c_void_p, c_void_p]
+library.IEnumWbemClassObject_SmartNext = logFuncCall(library.IEnumWbemClassObject_SmartNext)
 library.wmi_errstr.restype = c_char_p
 library.wmi_errstr.argtypes = [WERROR]
+library.wmi_errstr = logFuncCall(library.wmi_errstr)
 library.IWbemClassObject_GetMethod.restype = WERROR
 library.IWbemClassObject_GetMethod.argtypes = [POINTER(IWbemClassObject), c_void_p, c_char_p, c_uint32, c_void_p, c_void_p]
+library.IWbemClassObject_GetMethod = logFuncCall(library.IWbemClassObject_GetMethod)
 library.IWbemClassObject_SpawnInstance.restype = WERROR
 library.IWbemClassObject_SpawnInstance.argtypes = [POINTER(IWbemClassObject), c_void_p, c_uint32, c_void_p]
+library.IWbemClassObject_SpawnInstance = logFuncCall(library.IWbemClassObject_SpawnInstance)
 library.IWbemClassObject_Put.restype = WERROR
 library.IWbemClassObject_Put.argtypes = [POINTER(IWbemClassObject), c_void_p, c_char_p, c_uint32, POINTER(CIMVAR), enum]
+library.IWbemClassObject_Put = logFuncCall(library.IWbemClassObject_Put)
 library.WbemClassObject_Get.restype = WERROR
 library.WbemClassObject_Get.argtypes = [POINTER(WbemClassObject), c_void_p, c_char_p, c_uint32, POINTER(CIMVAR), enum, c_void_p]
+library.WbemClassObject_Get = logFuncCall(library.WbemClassObject_Get)
 
-library.async_create_context.restype = POINTER(event_context)
-library.async_create_context.argtypes = [POINTER(reactor_functions)]
 library.ConnectAndQuery.restype = WERROR
 library.ConnectAndQuery.argtypes = [POINTER(com_context), c_char_p, c_char_p, c_void_p]
+library.ConnectAndQuery = logFuncCall(library.ConnectAndQuery)
 library.IWbemServices_ExecQuery_send_f.restype = POINTER(composite_context)
 library.IWbemServices_ExecQuery_send_f.argtypes = [POINTER(IWbemServices), c_void_p, BSTR, BSTR, c_int32, POINTER(IWbemContext)]
+library.IWbemServices_ExecQuery_send_f = logFuncCall(library.IWbemServices_ExecQuery_send_f)
 library.IWbemServices_ExecNotificationQuery_send_f.restype = POINTER(composite_context)
 library.IWbemServices_ExecNotificationQuery_send_f.argtypes = [POINTER(IWbemServices), c_void_p, BSTR, BSTR, c_int32, POINTER(IWbemContext)]
+library.IWbemServices_ExecNotificationQuery_send_f = logFuncCall(library.IWbemServices_ExecNotificationQuery_send_f)
 library.IWbemServices_ExecNotificationQuery_recv.restype = WERROR
 library.IWbemServices_ExecNotificationQuery_recv.argtypes = [POINTER(composite_context), POINTER(POINTER(IEnumWbemClassObject))]
+library.IWbemServices_ExecNotificationQuery_recv = logFuncCall(library.IWbemServices_ExecNotificationQuery_recv)
 library.IEnumWbemClassObject_Reset_send_f.restype = POINTER(composite_context)
 library.IEnumWbemClassObject_Reset_send_f.argtypes = [POINTER(IEnumWbemClassObject), c_void_p]
+library.IEnumWbemClassObject_Reset_send_f = logFuncCall(library.IEnumWbemClassObject_Reset_send_f)
 library.IUnknown_Release_send_f.restype = POINTER(composite_context)
 library.IUnknown_Release_send_f.argtypes = [POINTER(IUnknown), c_void_p]
+library.IUnknown_Release_send_f = logFuncCall(library.IUnknown_Release_send_f)

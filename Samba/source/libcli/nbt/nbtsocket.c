@@ -54,6 +54,10 @@ static int nbt_name_request_destructor(struct nbt_name_request *req)
 	    req->nbtsock->incoming.handler == NULL) {
 		EVENT_FD_NOT_READABLE(req->nbtsock->fde);
 	}
+
+	/* once this has been called for this req, don't call again */
+	talloc_set_destructor(req, NULL);
+
 	return 0;
 }
 
@@ -184,7 +188,7 @@ static void nbt_name_socket_recv(struct nbt_name_socket *nbtsock)
 	}
 
 	/* parse the request */
-	status = ndr_pull_struct_blob(&blob, packet, packet, 
+	status = ndr_pull_struct_blob(&blob, packet, packet,
 				      (ndr_pull_flags_fn_t)ndr_pull_nbt_name_packet);
 	if (!NT_STATUS_IS_OK(status)) {
 		DEBUG(2,("Failed to parse incoming NBT name packet - %s\n",
@@ -273,10 +277,14 @@ static void nbt_name_socket_recv(struct nbt_name_socket *nbtsock)
 	req->status = NT_STATUS_OK;
 
 done:
-	talloc_free(tmp_ctx);
+    if (DEBUGLVL(9)) {
+        talloc_report(tmp_ctx, stdout);
+        talloc_report(req, stdout);
+    }
 	if (req->async.fn) {
 		req->async.fn(req);
 	}
+	talloc_free(tmp_ctx);
 }
 
 /*
@@ -287,11 +295,16 @@ static void nbt_name_socket_handler(struct event_context *ev, struct fd_event *f
 {
 	struct nbt_name_socket *nbtsock = talloc_get_type(private, 
 							  struct nbt_name_socket);
-	if (flags & EVENT_FD_WRITE) {
-		nbt_name_socket_send(nbtsock);
-	} 
-	if (flags & EVENT_FD_READ) {
-		nbt_name_socket_recv(nbtsock);
+    if (nbtsock != NULL) {
+        if (flags & EVENT_FD_WRITE) {
+            nbt_name_socket_send(nbtsock);
+        }
+        if (flags & EVENT_FD_READ) {
+            nbt_name_socket_recv(nbtsock);
+        }
+	}
+	else {
+	    DEBUG(9, ("Error condition in nbt_name_socket_handler: nbtsock was not of type struct nbt_name_socket"));
 	}
 }
 

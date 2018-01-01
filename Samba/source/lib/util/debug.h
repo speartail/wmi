@@ -41,7 +41,6 @@ struct debug_ops {
 };
 
 extern int DEBUGLEVEL;
-
 #define DEBUGLVL(level) ((level) <= DEBUGLEVEL)
 #define _DEBUG(level, body, header) do { \
 	if (DEBUGLVL(level)) { \
@@ -66,6 +65,12 @@ extern int DEBUGLEVEL;
  * Level specified by n.
  */
 #define DEBUGTAB(n) do_debug_tab(n)
+
+#define DEBUG_FN_ENTER DEBUG(9,("ENTER function %s\n", __FUNCTION__))
+#define DEBUG_FN_ENTER_MSG(_msg) DEBUG(9,("ENTER function %s (%s)\n", __FUNCTION__, _msg))
+#define DEBUG_FN_EXIT DEBUG(9,("EXIT  function %s (PASS)\n", __FUNCTION__))
+#define DEBUG_FN_EXIT_MSG(_msg) DEBUG(9,("EXIT  function %s (PASS) (%s)\n", __FUNCTION__, _msg))
+#define DEBUG_FN_FAIL(_msg) DEBUG(9,("exit function %s (FAIL) (%s)\n", __FUNCTION__, _msg))
 
 /** Possible destinations for the debug log */
 enum debug_logtype {DEBUG_STDOUT = 0, DEBUG_FILE = 1, DEBUG_STDERR = 2};

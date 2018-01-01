@@ -40,19 +40,20 @@ class timeval(Structure):
 #void zenoss_get_next_timeout(struct event_context* event_ctx, struct timeval* timeout)
 library.zenoss_get_next_timeout.restype = None
 library.zenoss_get_next_timeout.argtypes = [c_void_p, POINTER(timeval)]
-
-#struct event_context* async_create_context(struct reactor_functions *funcs)
-library.async_create_context.restype = c_void_p
-library.async_create_context.argtypes = [c_void_p]
+#logging will occur within this C function - avoid python logging for verbosity
+#library.zenoss_get_next_timeout = logFuncCall(library.zenoss_get_next_timeout)
 
 library.zenoss_read_ready.restype = None
 library.zenoss_read_ready.argtypes = [c_void_p, c_int]
+library.zenoss_read_ready = logFuncCall(library.zenoss_read_ready)
 
 library.zenoss_write_ready.restype = None
 library.zenoss_write_ready.argtypes = [c_void_p, c_int]
+library.zenoss_write_ready = logFuncCall(library.zenoss_write_ready)
 
 library.lp_do_parameter.restype = None
 library.lp_do_parameter.argtypes = [c_int, c_char_p, c_char_p]
+library.lp_do_parameter = logFuncCall(library.lp_do_parameter)
 
 from twisted.internet.selectreactor import SelectReactor
 from select import select
@@ -68,7 +69,7 @@ class WmiReactorMixin:
         all of our file descriptors that we need to watch are and then delegate
         the actual watching back to the twisted reactor.
         """
-        
+
         #
         # determine the next timeout interval based upon any queued events
         #
@@ -87,6 +88,7 @@ class WmiReactorMixin:
         self.watchFileDescriptor(fd, 0)
 
     def watchFileDescriptor(self, fd, flags):
+        log.debug("Callback from c: watchFileDescriptor: fd: %s flags: %s" % (fd, flags))
         if (flags & EVENT_FD_READ) != 0:
             if fd not in self.readFdMap:
                 reader = ActivityHook('Reader', fd)
@@ -104,7 +106,7 @@ class WmiReactorMixin:
         elif fd in self.writeFdMap:
             self.removeWriter(self.writeFdMap[fd])
             del self.writeFdMap[fd]
-            
+
         return 0
 
     def __checkTimeouts(self):
@@ -177,16 +179,9 @@ if os.uname()[0] == 'Linux':
 else:
     wmiReactor = WmiReactor()
 
-watch_fd_callback = CFUNCTYPE(c_int, c_int, c_uint16)
-loop_callback = CFUNCTYPE(c_int)
-class Callbacks(Structure):
-    _fields_ = [
-        ('fd_callback', watch_fd_callback),
-        ('loop_callback', loop_callback)
-        ]
-callback = Callbacks()
-callback.fd_callback = watch_fd_callback(wmiReactor.watchFileDescriptor)
-callback.loop_callback = loop_callback(wmiReactor.doOnce)
+callback = reactor_functions()
+callback.fd_callback = library.watch_fd_callback(logFuncCall(wmiReactor.watchFileDescriptor))
+callback.loop_callback = library.loop_callback(logFuncCall(wmiReactor.doOnce))
 eventContext = library.async_create_context(byref(callback))
 
 from twisted.internet.main import installReactor

@@ -46,6 +46,8 @@ struct sock_private {
 */
 static void sock_dead(struct dcerpc_connection *p, NTSTATUS status)
 {
+	DEBUG_FN_ENTER;
+
 	struct sock_private *sock = p->transport.private;
 
 	if (sock && sock->sock != NULL) {
@@ -57,6 +59,8 @@ static void sock_dead(struct dcerpc_connection *p, NTSTATUS status)
 	if (!NT_STATUS_IS_OK(status)) {
 		p->transport.recv_data(p, NULL, status);
 	}
+        DEBUG_FN_EXIT;
+
 }
 
 
@@ -65,9 +69,13 @@ static void sock_dead(struct dcerpc_connection *p, NTSTATUS status)
 */
 static void sock_error_handler(void *private, NTSTATUS status)
 {
-	struct dcerpc_connection *p = talloc_get_type(private,
+	DEBUG_FN_ENTER;
+
+        struct dcerpc_connection *p = talloc_get_type(private,
 						      struct dcerpc_connection);
 	sock_dead(p, status);
+        DEBUG_FN_EXIT;
+
 }
 
 /*
@@ -75,13 +83,17 @@ static void sock_error_handler(void *private, NTSTATUS status)
 */
 static NTSTATUS sock_complete_packet(void *private, DATA_BLOB blob, size_t *size)
 {
-	if (blob.length < DCERPC_FRAG_LEN_OFFSET+2) {
+	DEBUG_FN_ENTER;
+
+        if (blob.length < DCERPC_FRAG_LEN_OFFSET+2) {
 		return STATUS_MORE_ENTRIES;
 	}
 	*size = dcerpc_get_frag_length(&blob);
 	if (*size > blob.length) {
 		return STATUS_MORE_ENTRIES;
 	}
+        DEBUG_FN_EXIT;
+
 	return NT_STATUS_OK;
 }
 
@@ -90,7 +102,9 @@ static NTSTATUS sock_complete_packet(void *private, DATA_BLOB blob, size_t *size
 */
 static NTSTATUS sock_process_recv(void *private, DATA_BLOB blob)
 {
-	struct dcerpc_connection *p = talloc_get_type(private,
+	DEBUG_FN_ENTER;
+
+        struct dcerpc_connection *p = talloc_get_type(private,
 						      struct dcerpc_connection);
 	struct sock_private *sock = p->transport.private;
 	sock->pending_reads--;
@@ -98,6 +112,8 @@ static NTSTATUS sock_process_recv(void *private, DATA_BLOB blob)
 		packet_recv_disable(sock->packet);
 	}
 	p->transport.recv_data(p, &blob, NT_STATUS_OK);
+        DEBUG_FN_EXIT;
+
 	return NT_STATUS_OK;
 }
 
@@ -130,11 +146,15 @@ static void sock_io_handler(struct event_context *ev, struct fd_event *fde,
 */
 static NTSTATUS sock_send_read(struct dcerpc_connection *p)
 {
-	struct sock_private *sock = p->transport.private;
+	DEBUG_FN_ENTER;
+
+        struct sock_private *sock = p->transport.private;
 	sock->pending_reads++;
 	if (sock->pending_reads == 1) {
 		packet_recv_enable(sock->packet);
 	}
+        DEBUG_FN_EXIT;
+
 	return NT_STATUS_OK;
 }
 
@@ -144,27 +164,34 @@ static NTSTATUS sock_send_read(struct dcerpc_connection *p)
 static NTSTATUS sock_send_request(struct dcerpc_connection *p, DATA_BLOB *data,
 				  BOOL trigger_read)
 {
-	struct sock_private *sock = p->transport.private;
+	DEBUG_FN_ENTER;
+
+        struct sock_private *sock = p->transport.private;
 	DATA_BLOB blob;
 	NTSTATUS status;
 
 	if (sock->sock == NULL) {
+	        DEBUG_FN_FAIL("sock->sock is NULL");
 		return NT_STATUS_CONNECTION_DISCONNECTED;
 	}
 
 	blob = data_blob_talloc(sock->packet, data->data, data->length);
 	if (blob.data == NULL) {
+	        DEBUG_FN_FAIL("failed allocating blob");
 		return NT_STATUS_NO_MEMORY;
 	}
 
 	status = packet_send(sock->packet, blob);
 	if (!NT_STATUS_IS_OK(status)) {
+	        DEBUG_FN_FAIL("packet_send failed, !NT_STATUS_IS_OK");
 		return status;
 	}
 
 	if (trigger_read) {
 		sock_send_read(p);
 	}
+
+        DEBUG_FN_EXIT;
 
 	return NT_STATUS_OK;
 }
@@ -174,11 +201,15 @@ static NTSTATUS sock_send_request(struct dcerpc_connection *p, DATA_BLOB *data,
 */
 static NTSTATUS sock_shutdown_pipe(struct dcerpc_connection *p)
 {
-	struct sock_private *sock = p->transport.private;
+	DEBUG_FN_ENTER;
+
+        struct sock_private *sock = p->transport.private;
 
 	if (sock && sock->sock) {
 		sock_dead(p, NT_STATUS_OK);
 	}
+
+        DEBUG_FN_EXIT;
 
 	return NT_STATUS_OK;
 }
@@ -214,7 +245,9 @@ struct pipe_open_socket_state {
 
 static void continue_socket_connect(struct composite_context *ctx)
 {
-	struct dcerpc_connection *conn;
+	DEBUG_FN_ENTER;
+
+        struct dcerpc_connection *conn;
 	struct sock_private *sock;
 	struct composite_context *c = talloc_get_type(ctx->async.private_data,
 						      struct composite_context);
@@ -279,6 +312,8 @@ static void continue_socket_connect(struct composite_context *ctx)
 	BlockSignals(True,SIGPIPE);
 
 	composite_done(c);
+        DEBUG_FN_EXIT;
+
 }
 
 
@@ -288,7 +323,9 @@ struct composite_context *dcerpc_pipe_open_socket_send(TALLOC_CTX *mem_ctx,
 						       const char *target_hostname,
 						       enum dcerpc_transport_t transport)
 {
-	struct composite_context *c;
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c;
 	struct pipe_open_socket_state *s;
 	struct composite_context *conn_req;
 
@@ -315,15 +352,21 @@ struct composite_context *dcerpc_pipe_open_socket_send(TALLOC_CTX *mem_ctx,
 
 	conn_req = socket_connect_send(s->socket_ctx, NULL, s->server, 0, c->event_ctx);
 	composite_continue(c, conn_req, continue_socket_connect, c);
+        DEBUG_FN_EXIT;
+
 	return c;
 }
 
 
 NTSTATUS dcerpc_pipe_open_socket_recv(struct composite_context *c)
 {
-	NTSTATUS status = composite_wait(c);
+	DEBUG_FN_ENTER;
+
+        NTSTATUS status = composite_wait(c);
 
 	talloc_free(c);
+        DEBUG_FN_EXIT;
+
 	return status;
 }
 
@@ -335,9 +378,13 @@ NTSTATUS dcerpc_pipe_open_socket(struct dcerpc_connection *conn,
 				 const char *target_hostname,
 				 enum dcerpc_transport_t transport)
 {
-	struct composite_context *c;
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c;
 
 	c = dcerpc_pipe_open_socket_send(conn, conn, server, target_hostname, transport);
+        DEBUG_FN_EXIT;
+
 	return dcerpc_pipe_open_socket_recv(c);
 }
 
@@ -360,7 +407,9 @@ static void continue_ip_resolve_name(struct composite_context *ctx);
 
 static void continue_ip_resolve_name(struct composite_context *ctx)
 {
-	struct composite_context *c = talloc_get_type(ctx->async.private_data,
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c = talloc_get_type(ctx->async.private_data,
 						      struct composite_context);
 	struct pipe_tcp_state *s = talloc_get_type(c->private_data,
 						   struct pipe_tcp_state);
@@ -378,6 +427,8 @@ static void continue_ip_resolve_name(struct composite_context *ctx)
 						     s->srvaddr, s->target_hostname,
 						     NCACN_IP_TCP);
 	composite_continue(c, sock_ipv4_req, continue_ipv4_open_socket, c);
+        DEBUG_FN_EXIT;
+
 }
 
 /*
@@ -420,7 +471,9 @@ static void continue_ipv6_open_socket(struct composite_context *ctx)
 */
 static void continue_ipv4_open_socket(struct composite_context *ctx)
 {
-	struct composite_context *c = talloc_get_type(ctx->async.private_data,
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c = talloc_get_type(ctx->async.private_data,
 						      struct composite_context);
 	struct pipe_tcp_state *s = talloc_get_type(c->private_data,
 						   struct pipe_tcp_state);
@@ -438,6 +491,8 @@ static void continue_ipv4_open_socket(struct composite_context *ctx)
 	}
 
 	composite_done(c);
+        DEBUG_FN_EXIT;
+
 }
 
 
@@ -450,7 +505,9 @@ struct composite_context* dcerpc_pipe_open_tcp_send(struct dcerpc_connection *co
 						    const char *target_hostname,
 						    uint32_t port)
 {
-	struct composite_context *c;
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c;
 	struct pipe_tcp_state *s;
 	struct composite_context *resolve_req;
 	struct nbt_name name;
@@ -476,6 +533,8 @@ struct composite_context* dcerpc_pipe_open_tcp_send(struct dcerpc_connection *co
 	make_nbt_name_server(&name, server);
 	resolve_req = resolve_name_send(&name, c->event_ctx, lp_name_resolve_order());
 	composite_continue(c, resolve_req, continue_ip_resolve_name, c);
+        DEBUG_FN_EXIT;
+
 	return c;
 }
 
@@ -484,10 +543,14 @@ struct composite_context* dcerpc_pipe_open_tcp_send(struct dcerpc_connection *co
 */
 NTSTATUS dcerpc_pipe_open_tcp_recv(struct composite_context *c)
 {
-	NTSTATUS status;
+	DEBUG_FN_ENTER;
+
+        NTSTATUS status;
 	status = composite_wait(c);
 
 	talloc_free(c);
+        DEBUG_FN_EXIT;
+
 	return status;
 }
 
@@ -499,7 +562,9 @@ NTSTATUS dcerpc_pipe_open_tcp(struct dcerpc_connection *conn, const char *server
 			      const char *target_hostname,
 			      uint32_t port)
 {
-	struct composite_context *c;
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c;
 
 	c = dcerpc_pipe_open_tcp_send(conn, server, target_hostname, port);
 	return dcerpc_pipe_open_tcp_recv(c);
@@ -602,13 +667,17 @@ struct pipe_np_state {
 */
 void continue_np_open_socket(struct composite_context *ctx)
 {
-	struct composite_context *c = talloc_get_type(ctx->async.private_data,
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c = talloc_get_type(ctx->async.private_data,
 						      struct composite_context);
 
 	c->status = dcerpc_pipe_open_socket_recv(ctx);
 	if (!composite_is_ok(c)) return;
 
 	composite_done(c);
+        DEBUG_FN_EXIT;
+
 }
 
 
@@ -618,7 +687,9 @@ void continue_np_open_socket(struct composite_context *ctx)
 struct composite_context* dcerpc_pipe_open_pipe_send(struct dcerpc_connection *conn,
 						     const char *identifier)
 {
-	char *canon = NULL;
+	DEBUG_FN_ENTER;
+
+        char *canon = NULL;
 
 	struct composite_context *c;
 	struct composite_context *sock_np_req;
@@ -648,6 +719,8 @@ struct composite_context* dcerpc_pipe_open_pipe_send(struct dcerpc_connection *c
 	/* send socket open request */
 	sock_np_req = dcerpc_pipe_open_socket_send(c, s->conn, s->srvaddr, NULL, NCALRPC);
 	composite_continue(c, sock_np_req, continue_np_open_socket, c);
+        DEBUG_FN_EXIT;
+
 	return c;
 }
 
@@ -657,9 +730,13 @@ struct composite_context* dcerpc_pipe_open_pipe_send(struct dcerpc_connection *c
 */
 NTSTATUS dcerpc_pipe_open_pipe_recv(struct composite_context *c)
 {
-	NTSTATUS status = composite_wait(c);
+	DEBUG_FN_ENTER;
+
+        NTSTATUS status = composite_wait(c);
 
 	talloc_free(c);
+        DEBUG_FN_EXIT;
+
 	return status;
 }
 
