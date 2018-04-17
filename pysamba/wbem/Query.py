@@ -33,8 +33,12 @@ WERR_BADFUNC = 1
 #         struct cli_credentials *credentials)
 library.dcom_client_init.restype = c_void_p
 library.dcom_client_init.argtypes = [POINTER(com_context), c_void_p]
+library.dcom_client_init = logFuncCall(library.dcom_client_init)
 
+#WERROR com_init_ctx(struct com_context **ctx, struct event_context *event_ctx);
 library.com_init_ctx.restype = WERROR
+library.com_init_ctx.argtypes = [POINTER(POINTER(com_context)), POINTER(event_context)]
+library.com_init_ctx = logFuncCall(library.com_init_ctx)
 
 class _WbemObject:
     def __getattr__(self, name):
@@ -157,7 +161,6 @@ class Query(object):
 
     def connect(self, eventContext, deviceId, hostname, creds, namespace="root\\cimv2"):
         self._deviceId = deviceId
-        library.com_init_ctx.restype = WERROR
         library.com_init_ctx(byref(self.ctx), eventContext)
 
         cred = library.cli_credentials_init(self.ctx)
@@ -177,8 +180,8 @@ class Query(object):
                           None,         # password
                           None,         # locale
                           flags.value,  # flags
-                          None,         # authority 
-                          None)         # wbem_ctx 
+                          None,         # authority
+                          None)         # wbem_ctx
             yield deferred(ctx); driver.next()
             result = library.WBEM_ConnectServer_recv(ctx, None, byref(self.pWS))
             WERR_CHECK(result, self._deviceId, "Connect")
@@ -193,9 +196,9 @@ class Query(object):
                 qctx = library.IWbemServices_ExecQuery_send_f(
                     self.pWS,
                     self.ctx,
-                    "WQL", 
-                    query, 
-                    WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_ENSURE_LOCATABLE, 
+                    "WQL",
+                    query,
+                    WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_ENSURE_LOCATABLE,
                     None)
                 yield deferred(qctx); driver.next()
                 pEnum = POINTER(IEnumWbemClassObject)()
@@ -221,9 +224,9 @@ class Query(object):
                 qctx = library.IWbemServices_ExecNotificationQuery_send_f(
                     self.pWS,
                     self.ctx,
-                    "WQL", 
-                    query, 
-                    WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, 
+                    "WQL",
+                    query,
+                    WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY,
                     None)
                 yield deferred(qctx); driver.next()
                 pEnum = POINTER(IEnumWbemClassObject)()

@@ -53,7 +53,11 @@ static void smbcli_transport_event_handler(struct event_context *ev,
  */
 static int transport_destructor(struct smbcli_transport *transport)
 {
-	smbcli_transport_dead(transport, NT_STATUS_LOCAL_DISCONNECT);
+	DEBUG_FN_ENTER;
+
+        smbcli_transport_dead(transport, NT_STATUS_LOCAL_DISCONNECT);
+        DEBUG_FN_EXIT;
+
 	return 0;
 }
 
@@ -64,7 +68,11 @@ static int transport_destructor(struct smbcli_transport *transport)
 static void smbcli_transport_error(void *private, NTSTATUS status)
 {
 	struct smbcli_transport *transport = talloc_get_type(private, struct smbcli_transport);
-	smbcli_transport_dead(transport, status);
+	DEBUG_FN_ENTER;
+
+        smbcli_transport_dead(transport, status);
+        DEBUG_FN_EXIT;
+
 }
 
 static NTSTATUS smbcli_transport_finish_recv(void *private, DATA_BLOB blob);
@@ -77,7 +85,9 @@ struct smbcli_transport *smbcli_transport_init(struct smbcli_socket *sock,
 {
 	struct smbcli_transport *transport;
 
-	transport = talloc_zero(parent_ctx, struct smbcli_transport);
+	DEBUG_FN_ENTER;
+
+        transport = talloc_zero(parent_ctx, struct smbcli_transport);
 	if (!transport) return NULL;
 
 	if (primary) {
@@ -97,6 +107,7 @@ struct smbcli_transport *smbcli_transport_init(struct smbcli_socket *sock,
 	transport->packet = packet_init(transport);
 	if (transport->packet == NULL) {
 		talloc_free(transport);
+	        DEBUG_FN_FAIL("packet_init_failed, return NULL");
 		return NULL;
 	}
 	packet_set_private(transport->packet, transport);
@@ -125,6 +136,8 @@ struct smbcli_transport *smbcli_transport_init(struct smbcli_socket *sock,
 	packet_set_serialise(transport->packet);
 	talloc_set_destructor(transport, transport_destructor);
 
+        DEBUG_FN_EXIT;
+
 	return transport;
 }
 
@@ -133,7 +146,9 @@ struct smbcli_transport *smbcli_transport_init(struct smbcli_socket *sock,
 */
 void smbcli_transport_dead(struct smbcli_transport *transport, NTSTATUS status)
 {
-	smbcli_sock_dead(transport->socket);
+	DEBUG_FN_ENTER;
+
+        smbcli_sock_dead(transport->socket);
 
 	if (NT_STATUS_EQUAL(NT_STATUS_UNSUCCESSFUL, status)) {
 		status = NT_STATUS_UNEXPECTED_NETWORK_ERROR;
@@ -163,6 +178,8 @@ void smbcli_transport_dead(struct smbcli_transport *transport, NTSTATUS status)
 	/* all done with transport, free holder reference*/
 	talloc_free(transportRef);
 #endif
+        DEBUG_FN_EXIT;
+
 }
 
 
@@ -173,7 +190,9 @@ struct smbcli_request *smbcli_transport_connect_send(struct smbcli_transport *tr
 						     struct nbt_name *calling, 
 						     struct nbt_name *called)
 {
-	uint8_t *p;
+	DEBUG_FN_ENTER;
+
+        uint8_t *p;
 	struct smbcli_request *req;
 	DATA_BLOB calling_blob, called_blob;
 	TALLOC_CTX *tmp_ctx = talloc_new(transport);
@@ -211,10 +230,14 @@ struct smbcli_request *smbcli_transport_connect_send(struct smbcli_transport *tr
 	}
 
 	talloc_free(tmp_ctx);
+        DEBUG_FN_EXIT;
+
 	return req;
 
 failed:
 	talloc_free(tmp_ctx);
+        DEBUG_FN_FAIL("failed, return NULL");
+
 	return NULL;
 }
 
@@ -243,7 +266,9 @@ NTSTATUS smbcli_transport_connect_recv(struct smbcli_request *req)
 {
 	NTSTATUS status;
 
-	if (!smbcli_request_receive(req)) {
+	DEBUG_FN_ENTER;
+
+        if (!smbcli_request_receive(req)) {
 		smbcli_request_destroy(req);
 		return NT_STATUS_UNEXPECTED_NETWORK_ERROR;
 	}
@@ -265,6 +290,8 @@ NTSTATUS smbcli_transport_connect_recv(struct smbcli_request *req)
 	}
 
 	smbcli_request_destroy(req);
+        DEBUG_FN_EXIT;
+
 	return status;
 }
 
@@ -279,13 +306,17 @@ BOOL smbcli_transport_connect(struct smbcli_transport *transport,
 	struct smbcli_request *req;
 	NTSTATUS status;
 
-	if (transport->socket->port == 445) {
+	DEBUG_FN_ENTER;
+
+        if (transport->socket->port == 445) {
 		return True;
 	}
 
 	req = smbcli_transport_connect_send(transport, 
 					    calling, called);
 	status = smbcli_transport_connect_recv(req);
+        DEBUG_FN_EXIT;
+
 	return NT_STATUS_IS_OK(status);
 }
 
@@ -305,7 +336,9 @@ again:
 	   usually very short */
 
 	/* the zero mid is reserved for requests that don't have a mid */
-	if (mid == 0) mid = 1;
+	DEBUG_FN_ENTER;
+
+        if (mid == 0) mid = 1;
 
 	for (req=transport->pending_recv; req; req=req->next) {
 		if (req->mid == mid) {
@@ -315,6 +348,8 @@ again:
 	}
 
 	transport->next_mid = mid+1;
+        DEBUG_FN_EXIT;
+
 	return mid;
 }
 
@@ -360,7 +395,9 @@ void smbcli_transport_idle_handler(struct smbcli_transport *transport,
  */
 static NTSTATUS smbcli_transport_finish_recv(void *private, DATA_BLOB blob)
 {
-	struct smbcli_transport *transport = talloc_get_type(private, 
+	DEBUG_FN_ENTER;
+
+        struct smbcli_transport *transport = talloc_get_type(private, 
 							     struct smbcli_transport);
 	uint8_t *buffer, *hdr, *vwv;
 	int len;
@@ -494,6 +531,8 @@ async:
 	if (req->async.fn) {
 		req->async.fn(req);
 	}
+        DEBUG_FN_EXIT_MSG("async");
+
 	return NT_STATUS_OK;
 
 error:
@@ -506,6 +545,8 @@ error:
 	} else {
 		talloc_free(buffer);
 	}
+        DEBUG_FN_FAIL("failed, continue NT_STATUS_OK");
+
 	return NT_STATUS_OK;
 }
 
@@ -518,7 +559,9 @@ BOOL smbcli_transport_process(struct smbcli_transport *transport)
 	NTSTATUS status;
 	size_t npending;
 
-	packet_queue_run(transport->packet);
+	DEBUG_FN_ENTER;
+
+        packet_queue_run(transport->packet);
 	if (transport->socket->sock == NULL) {
 		return False;
 	}
@@ -530,6 +573,8 @@ BOOL smbcli_transport_process(struct smbcli_transport *transport)
 	if (transport->socket->sock == NULL) {
 		return False;
 	}
+        DEBUG_FN_EXIT;
+
 	return True;
 }
 
@@ -539,7 +584,9 @@ BOOL smbcli_transport_process(struct smbcli_transport *transport)
 static void smbcli_timeout_handler(struct event_context *ev, struct timed_event *te, 
 				   struct timeval t, void *private)
 {
-	struct smbcli_request *req = talloc_get_type(private, struct smbcli_request);
+	DEBUG_FN_ENTER;
+
+        struct smbcli_request *req = talloc_get_type(private, struct smbcli_request);
 
 	if (req->state == SMBCLI_REQUEST_RECV) {
 		DLIST_REMOVE(req->transport->pending_recv, req);
@@ -549,6 +596,8 @@ static void smbcli_timeout_handler(struct event_context *ev, struct timed_event 
 	if (req->async.fn) {
 		req->async.fn(req);
 	}
+        DEBUG_FN_EXIT;
+
 }
 
 
@@ -557,15 +606,23 @@ static void smbcli_timeout_handler(struct event_context *ev, struct timed_event 
 */
 static int smbcli_request_destructor(struct smbcli_request *req)
 {
-	if (req->state == SMBCLI_REQUEST_RECV) {
+	DEBUG_FN_ENTER;
+
+        if (req->state == SMBCLI_REQUEST_RECV) {
 		DLIST_REMOVE(req->transport->pending_recv, req);
 	}
+        DEBUG_FN_EXIT;
+
 	return 0;
 }
 
 static int smbcli_request_deny_destructor(struct smbcli_request *req)
 {
-	return -1;
+	DEBUG_FN_ENTER;
+
+        DEBUG_FN_EXIT;
+
+        return -1;
 }
 
 /*
@@ -576,10 +633,13 @@ void smbcli_transport_send(struct smbcli_request *req)
 	DATA_BLOB blob;
 	NTSTATUS status;
 
+        DEBUG_FN_ENTER;
+
 	/* check if the transport is dead */
 	if (req->transport->socket->sock == NULL) {
 		req->state = SMBCLI_REQUEST_ERROR;
 		req->status = NT_STATUS_NET_WRITE_FAULT;
+	        DEBUG_FN_FAIL("req->transport->socket->sock is NULL");
 		return;
 	}
 
@@ -588,12 +648,14 @@ void smbcli_transport_send(struct smbcli_request *req)
 	if (!NT_STATUS_IS_OK(status)) {
 		req->state = SMBCLI_REQUEST_ERROR;
 		req->status = status;
+		DEBUG_FN_FAIL("packet_send fail, !NTSTATUS_IS_OK");
 		return;
 	}
 
 	if (req->one_way_request) {
 		req->state = SMBCLI_REQUEST_DONE;
 		smbcli_request_destroy(req);
+		DEBUG_FN_EXIT_MSG("one way request");
 		return;
 	}
 
@@ -608,4 +670,6 @@ void smbcli_transport_send(struct smbcli_request *req)
 	}
 
 	talloc_set_destructor(req, smbcli_request_destructor);
+        DEBUG_FN_EXIT;
+
 }

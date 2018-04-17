@@ -30,10 +30,19 @@
 #include "libcli/composite/composite.h"
 #include "auth/gensec/gensec.h"
 
+#ifdef BREAKPAD
+void* getExceptionHandler(char* dump_path);
+void releaseExceptionHandler(void* eh);
+
+static void* globalDcerpcExceptionHandler;
+#endif
+
 NTSTATUS dcerpc_init(void)
 {
 	gensec_init();
-
+#ifdef BREAKPAD
+        globalDcerpcExceptionHandler = getExceptionHandler("/tmp");
+#endif
 	return NT_STATUS_OK;
 }
 
@@ -74,6 +83,11 @@ static struct dcerpc_connection *dcerpc_connection_init(TALLOC_CTX *mem_ctx,
 
 	c->event_ctx = ev;
 
+        if (getenv("FORCE_FAIL")) {
+        	int* zzz = 0;
+		*zzz = 1;
+	}
+
 	if (!talloc_reference(c, ev)) {
 		talloc_free(c);
 		return NULL;
@@ -98,13 +112,17 @@ struct dcerpc_pipe *dcerpc_pipe_init(TALLOC_CTX *mem_ctx, struct event_context *
 {
 	struct dcerpc_pipe *p;
 
+	DEBUG_FN_ENTER;
+
 	p = talloc(mem_ctx, struct dcerpc_pipe);
 	if (!p) {
+		DEBUG_FN_FAIL("talloc failure");
 		return NULL;
 	}
 
 	p->conn = dcerpc_connection_init(p, ev);
 	if (p->conn == NULL) {
+		DEBUG_FN_FAIL("connection failure");
 		talloc_free(p);
 		return NULL;
 	}
@@ -116,6 +134,7 @@ struct dcerpc_pipe *dcerpc_pipe_init(TALLOC_CTX *mem_ctx, struct event_context *
 	ZERO_STRUCT(p->syntax);
 	ZERO_STRUCT(p->transfer_syntax);
 
+	DEBUG_FN_EXIT;
 	return p;
 }
 
@@ -191,6 +210,8 @@ static NTSTATUS ncacn_pull(struct dcerpc_connection *c, DATA_BLOB *blob, TALLOC_
 			    struct ncacn_packet *pkt)
 {
 	struct ndr_pull *ndr;
+
+	DEBUG_FN_ENTER;
 
 	ndr = ndr_pull_init_flags(c, blob, mem_ctx);
 	if (!ndr) {
@@ -535,7 +556,9 @@ static void dcerpc_composite_fail(struct rpc_request *req)
 */
 static void dcerpc_connection_dead(struct dcerpc_connection *conn, NTSTATUS status)
 {
-	/* bump ref count on connection to make sure we don't prematurely free memory 
+	DEBUG_FN_ENTER;
+
+	/* bump ref count on connection to make sure we don't prematurely free memory
 	   in the callback */
 	void *reference_keeper = talloc_named_const(NULL, 1, "CONN_REFERENCE_KEEPER");
 	talloc_reference(reference_keeper, conn);
@@ -544,7 +567,7 @@ static void dcerpc_connection_dead(struct dcerpc_connection *conn, NTSTATUS stat
 	struct rpc_request *tmpreq;
 	for(tmpreq = conn->pending; tmpreq; tmpreq = tmpreq->next) {
 		talloc_set_destructor(tmpreq, dcerpc_req_deny_destructor);
-	} 
+	}
 
 	/* all pending requests get the error */
 	while (conn->pending) {
@@ -583,7 +606,9 @@ static void dcerpc_request_recv_data(struct dcerpc_connection *c,
 */
 static void dcerpc_recv_data(struct dcerpc_connection *conn, DATA_BLOB *blob, NTSTATUS status)
 {
-	struct ncacn_packet pkt;
+	DEBUG_FN_ENTER;
+
+        struct ncacn_packet pkt;
 
 	if (NT_STATUS_IS_OK(status) && blob->length == 0) {
 		status = NT_STATUS_UNEXPECTED_NETWORK_ERROR;
@@ -605,6 +630,7 @@ static void dcerpc_recv_data(struct dcerpc_connection *conn, DATA_BLOB *blob, NT
 	}
 
 	dcerpc_request_recv_data(conn, blob, &pkt);
+	DEBUG_FN_EXIT;
 }
 
 
@@ -614,7 +640,9 @@ static void dcerpc_recv_data(struct dcerpc_connection *conn, DATA_BLOB *blob, NT
 static void dcerpc_bind_recv_handler(struct rpc_request *req,
 				     DATA_BLOB *raw_packet, struct ncacn_packet *pkt)
 {
-	struct composite_context *c;
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c;
 	struct dcerpc_connection *conn;
 
 	c = talloc_get_type(req->async.private, struct composite_context);
@@ -650,6 +678,7 @@ static void dcerpc_bind_recv_handler(struct rpc_request *req,
 	}
 
 	composite_done(c);
+	DEBUG_FN_EXIT;
 }
 
 /*
@@ -658,7 +687,9 @@ static void dcerpc_bind_recv_handler(struct rpc_request *req,
 static void dcerpc_timeout_handler(struct event_context *ev, struct timed_event *te,
 				   struct timeval t, void *private)
 {
-	struct rpc_request *req = talloc_get_type(private, struct rpc_request);
+	DEBUG_FN_ENTER;
+
+    struct rpc_request *req = talloc_get_type(private, struct rpc_request);
 
 	if (req->state != RPC_REQUEST_PENDING) {
 		return;
@@ -670,6 +701,8 @@ static void dcerpc_timeout_handler(struct event_context *ev, struct timed_event 
 	if (req->async.callback) {
 		req->async.callback(req);
 	}
+
+	DEBUG_FN_EXIT;
 }
 
 
@@ -681,7 +714,9 @@ struct composite_context *dcerpc_bind_send(struct dcerpc_pipe *p,
 					   const struct dcerpc_syntax_id *syntax,
 					   const struct dcerpc_syntax_id *transfer_syntax)
 {
-	struct composite_context *c;
+	DEBUG_FN_ENTER;
+
+        struct composite_context *c;
 	struct ncacn_packet pkt;
 	DATA_BLOB blob;
 	struct rpc_request *req;
@@ -800,7 +835,9 @@ NTSTATUS dcerpc_auth3(struct dcerpc_connection *c,
 static void dcerpc_request_recv_data(struct dcerpc_connection *c,
 				     DATA_BLOB *raw_packet, struct ncacn_packet *pkt)
 {
-	struct rpc_request *req;
+	DEBUG_FN_ENTER;
+
+        struct rpc_request *req;
 	uint_t length;
 	NTSTATUS status = NT_STATUS_OK;
 
@@ -924,13 +961,17 @@ req_done:
  */
 static int dcerpc_req_destructor(struct rpc_request *req)
 {
-	DLIST_REMOVE(req->p->conn->pending, req);
+	DEBUG_FN_ENTER;
+
+        DLIST_REMOVE(req->p->conn->pending, req);
 	return 0;
 }
 
 static int dcerpc_req_deny_destructor(struct rpc_request *req)
 {
-	return -1;
+	DEBUG_FN_ENTER;
+
+        return -1;
 }
 
 /*
@@ -942,7 +983,9 @@ static struct rpc_request *dcerpc_request_send(struct dcerpc_pipe *p,
 					       BOOL async,
 					       DATA_BLOB *stub_data)
 {
-	struct rpc_request *req;
+	DEBUG_FN_ENTER;
+
+        struct rpc_request *req;
 
 	p->conn->transport.recv_data = dcerpc_recv_data;
 
@@ -1000,7 +1043,9 @@ static struct rpc_request *dcerpc_request_send(struct dcerpc_pipe *p,
 
 static void dcerpc_ship_next_request(struct dcerpc_connection *c)
 {
-	struct rpc_request *req;
+	DEBUG_FN_ENTER;
+
+        struct rpc_request *req;
 	struct dcerpc_pipe *p;
 	DATA_BLOB *stub_data;
 	struct ncacn_packet pkt;
@@ -1101,7 +1146,9 @@ NTSTATUS dcerpc_request_recv(struct rpc_request *req,
 			     TALLOC_CTX *mem_ctx,
 			     DATA_BLOB *stub_data)
 {
-	NTSTATUS status;
+	DEBUG_FN_ENTER;
+
+        NTSTATUS status;
 
 	while (req->state == RPC_REQUEST_PENDING) {
 		struct event_context *ctx = dcerpc_event_context(req->p);
@@ -1135,7 +1182,9 @@ NTSTATUS dcerpc_request(struct dcerpc_pipe *p,
 			DATA_BLOB *stub_data_in,
 			DATA_BLOB *stub_data_out)
 {
-	struct rpc_request *req;
+	DEBUG_FN_ENTER;
+
+        struct rpc_request *req;
 
 	req = dcerpc_request_send(p, object, opnum, async, stub_data_in);
 	if (req == NULL) {
@@ -1322,7 +1371,9 @@ struct rpc_request *dcerpc_ndr_request_send(struct dcerpc_pipe *p,
 						TALLOC_CTX *mem_ctx,
 						void *r)
 {
-	const struct dcerpc_interface_call *call;
+	DEBUG_FN_ENTER;
+
+        const struct dcerpc_interface_call *call;
 	struct ndr_push *push;
 	NTSTATUS status;
 	DATA_BLOB request;
@@ -1387,7 +1438,9 @@ struct rpc_request *dcerpc_ndr_request_send(struct dcerpc_pipe *p,
 */
 _PUBLIC_ NTSTATUS dcerpc_ndr_request_recv(struct rpc_request *req)
 {
-	struct dcerpc_pipe *p = req->p;
+	DEBUG_FN_ENTER;
+
+        struct dcerpc_pipe *p = req->p;
 	NTSTATUS status;
 	DATA_BLOB response;
 	struct ndr_pull *pull;

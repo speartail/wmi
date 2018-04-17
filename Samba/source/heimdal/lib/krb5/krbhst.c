@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2003 Kungliga Tekniska Högskolan
+ * Copyright (c) 2001 - 2003 Kungliga Tekniska Hï¿½gskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -502,7 +502,6 @@ add_locate(void *ctx, int type, struct sockaddr *addr)
 
     hi = calloc(1, sizeof(*hi) + hostlen);
     if(hi == NULL) {
-	free(host);
 	return ENOMEM;
     }
     

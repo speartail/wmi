@@ -2,9 +2,9 @@ The Samba Build System
 ----------------------
 ----------------------
 
-The build system basically has two main parts: the autoconf-generated 
-shell scripts which check for availability of functions and libraries 
-which is stored in the .m4 files and the information about the various 
+The build system basically has two main parts: the autoconf-generated
+shell scripts which check for availability of functions and libraries
+which is stored in the .m4 files and the information about the various
 subsystems which is stored in the .mk files.
 
 Object Types
@@ -20,7 +20,7 @@ SUBSYSTEM:
 MODULE:
 	a MODULE is a specify implementation of a API provided by a SUBSYSTEM.
 	(e.g. 'libldb_tdb' and 'libldb_ldap' are implementations of the subsystem 'libldb' API,
-	 and 'libldb_plugin_timestamp' is a module of the 'libldb_plugin' subsystem)	
+	 and 'libldb_plugin_timestamp' is a module of the 'libldb_plugin' subsystem)
 
 EXT_LIB:
 	an EXT_LIB is an external library which is needed by a SUBSYSTEM, MODULE, BINARY or LIBRARY.
@@ -29,7 +29,7 @@ EXT_LIB:
 BINARY:
 	a BINARY means a executable binary file.
 	(e.g. 'smbtorture' or 'ldbedit')
-	a BINARY typicly has only commandline handling and basic 
+	a BINARY typicly has only commandline handling and basic
 	functionality code in it and depends on the functions of
 	SUBSYSTEM's (REQUIRED_SUBSYSTEMS).
 
@@ -44,7 +44,7 @@ LIBRARY:
 File summary:
 -------------
 public.m4 - public M4 macros of the build system
-config_mk.pm - Support for reading .mk files 
+config_mk.pm - Support for reading .mk files
 dot.pm - Support for generating .dot files for analysis of dependencies
 input.pm - Input validation
 main.pm - Main
